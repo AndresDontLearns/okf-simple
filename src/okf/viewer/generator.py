@@ -6,16 +6,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from reference_agent.bundle.document import OKFDocument, OKFDocumentError
+from okf.bundle.document import OKFDocument, OKFDocumentError
 
 _INDEX_NAME = "index.md"
 _LINK_RE = re.compile(r"\]\(([^)\s]+\.md)(?:#[A-Za-z0-9_\-]*)?\)")
-_TYPE_PALETTE = {
-    "BigQuery Dataset": "#8b5cf6",
-    "BigQuery Table": "#3b82f6",
-    "Reference": "#10b981",
-}
+_COLOR_POOL = [
+    "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b",
+    "#ef4444", "#ec4899", "#06b6d4", "#84cc16",
+]
 _DEFAULT_NODE_COLOR = "#94a3b8"
+
+
+def _type_palette(types: set[str]) -> dict[str, str]:
+    return {t: _COLOR_POOL[i % len(_COLOR_POOL)] for i, t in enumerate(sorted(types))}
 
 
 @dataclass
@@ -29,8 +32,8 @@ class Concept:
     body: str
     links_to: list[str] = field(default_factory=list)
 
-    def to_node(self) -> dict[str, Any]:
-        color = _TYPE_PALETTE.get(self.type, _DEFAULT_NODE_COLOR)
+    def to_node(self, palette: dict[str, str]) -> dict[str, Any]:
+        color = palette.get(self.type, _DEFAULT_NODE_COLOR)
         return {
             "data": {
                 "id": self.id,
@@ -97,7 +100,9 @@ def _walk_concepts(bundle_root: Path) -> list[Concept]:
 
 def _build_graph(concepts: list[Concept]) -> dict[str, Any]:
     ids = {c.id for c in concepts}
-    nodes = [c.to_node() for c in concepts]
+    all_types = {c.type for c in concepts}
+    palette = _type_palette(all_types)
+    nodes = [c.to_node(palette) for c in concepts]
     edges: list[dict[str, Any]] = []
     seen_edges: set[tuple[str, str]] = set()
     for c in concepts:
@@ -116,13 +121,13 @@ def _build_graph(concepts: list[Concept]) -> dict[str, Any]:
                 }
             })
     bodies = {c.id: c.body for c in concepts}
-    types = sorted({c.type for c in concepts})
+    types = sorted(all_types)
     return {
         "nodes": nodes,
         "edges": edges,
         "bodies": bodies,
         "types": types,
-        "palette": _TYPE_PALETTE,
+        "palette": palette,
     }
 
 

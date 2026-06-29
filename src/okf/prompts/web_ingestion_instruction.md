@@ -111,9 +111,9 @@ Estas reglas son innegociables:
      diccionario.
    - Copia `title` textualmente. El `<title>` de la página web **no** es
      el título del concepto.
-   - Copia `resource` textualmente. Para un documento de `BigQuery Table`,
-     el `resource` es la URI REST de BigQuery; debe permanecer así. La URL
-     de la página web va en `# Citations`, nunca en `resource`.
+   - Copia `resource` textualmente. El `resource` identifica el activo
+     subyacente; debe permanecer como está. La URL de la página web va en
+     `# Citations`, nunca en `resource`.
    - Para `tags`, pasa la unión de las etiquetas existentes más las nuevas
      (fusiona, no reemplaces).
    - Deja `timestamp` sin establecer (omite la clave o establécela vacía)
@@ -136,9 +136,9 @@ Estas reglas son innegociables:
    - eliminar ni renombrar ningún encabezado `#` existente,
    - reemplazar el cuerpo completo con una reescritura temática de la
      página web,
-   - reducir ni reescribir la sección `# Schema` de un documento de
-     `BigQuery Table` — el pase de BQ la pobló a partir de metadatos
-     reales del esquema; conserva cada listado de campos.
+   - reducir ni reescribir la sección `# Schema` de un documento
+     existente — fue poblada a partir de metadatos reales; conserva cada
+     listado de campos.
 
 3. **Si no puedes cumplir la regla 2** porque la página web es un tema
    fundamentalmente diferente (un recetario de consultas, una página de

@@ -137,8 +137,8 @@ timestamp: <ISO 8601 datetime>     # Optional last-modified time
 
 - `type` — Una cadena corta que identifica el tipo de concepto. Los consumidores
   la utilizan para enrutamiento, filtrado y presentación. Valores de ejemplo:
-  `BigQuery Table`, `BigQuery Dataset`, `API Endpoint`, `Metric`,
-  `Playbook`, `Reference`.
+  `Component`, `API Endpoint`, `Decision Record`, `Process`,
+  `Metric`, `Playbook`, `Note`, `Reference`.
 
   Los valores de type **no** se registran centralmente. Los productores SHOULD elegir
   valores que sean descriptivos y autoexplicativos; los consumidores MUST
@@ -176,57 +176,68 @@ significado **convencional** y SHOULD ser utilizados cuando aplique:
 | `# Schema`     | Descripción estructurada de las columnas/campos de un activo. |
 | `# Examples`   | Ejemplos concretos de uso, frecuentemente como bloques de código delimitados. |
 | `# Citations`  | Fuentes externas que respaldan afirmaciones en el body. Ver §8. |
+| `# Context`    | Información de contexto y motivación detrás del concepto. |
+| `# Decision`   | Justificación de una elección o trade-off específico. |
+| `# Steps`      | Procedimiento o flujo de trabajo ordenado. |
+| `# Links`      | Recursos relacionados, tanto internos como externos. |
 
 ### 4.3 Ejemplo: un concepto vinculado a un recurso
 
 ```markdown
 ---
-type: BigQuery Table
-title: Customer Orders
-description: One row per completed customer order across all channels.
-resource: https://console.cloud.google.com/bigquery?p=acme&d=sales&t=orders
-tags: [sales, orders, revenue]
+type: API Endpoint
+title: User Authentication
+description: Handles user login, token issuance, and session management.
+resource: https://api.example.com/v2/auth
+tags: [auth, security, api]
 timestamp: 2026-05-28T14:30:00Z
 ---
 
 # Schema
 
-| Column        | Type      | Description                              |
-|---------------|-----------|------------------------------------------|
-| `order_id`    | STRING    | Globally unique order identifier.        |
-| `customer_id` | STRING    | Foreign key into [customers](/tables/customers.md). |
-| `total_usd`   | NUMERIC   | Order total in US dollars.               |
-| `placed_at`   | TIMESTAMP | When the customer submitted the order.   |
+| Field          | Type     | Description                              |
+|----------------|----------|------------------------------------------|
+| `email`        | string   | User's email address.                    |
+| `password`     | string   | Hashed password (bcrypt).                |
+| `token`        | string   | JWT issued on successful login.          |
+| `expires_at`   | datetime | Token expiration timestamp.              |
 
-# Joins
+# Context
 
-Joined with [customers](/tables/customers.md) on `customer_id`.
+This endpoint replaced the legacy `/v1/login` flow. It uses OAuth 2.0
+with PKCE for public clients. See [security policy](/policies/auth.md).
 
 # Citations
 
-[1] [BigQuery table schema](https://console.cloud.google.com/bigquery?p=acme&d=sales&t=orders)
+[1] [OAuth 2.0 for Browser-Based Apps](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-browser-based-apps)
 ```
 
 ### 4.4 Ejemplo: un concepto no vinculado a un recurso
 
 ```markdown
 ---
-type: Playbook
-title: Incident response — data freshness alert
-description: Steps to triage a freshness alert on the orders pipeline.
-tags: [oncall, incident]
+type: Decision Record
+title: Migration to event-driven architecture
+description: Decision to adopt event-driven patterns for inter-service communication.
+tags: [architecture, backend, events]
 timestamp: 2026-04-12T09:00:00Z
 ---
 
-# Trigger
+# Context
 
-A freshness alert fires when `orders` lags more than 30 minutes behind
-its expected SLA. See the [orders table](/tables/orders.md).
+The monolithic request-response pattern between services caused cascading
+failures during traffic spikes. The team evaluated three alternatives.
+
+# Decision
+
+Adopt an event-driven architecture using a message broker. Services publish
+domain events; consumers subscribe to relevant topics.
 
 # Steps
 
-1. Check the [ingestion job dashboard](https://example.com/dash).
-2. …
+1. Define the event schema registry. See [event schemas](/schemas/events.md).
+2. Migrate the [order service](/services/orders.md) as the pilot.
+3. Monitor consumer lag and dead-letter queues.
 ```
 
 ---
@@ -241,7 +252,7 @@ soportan dos formas:
 Comienzan con `/`, interpretados en relación a la raíz del bundle.
 
 ```markdown
-See the [customers table](/tables/customers.md) for the join key.
+See the [auth endpoint](/api/auth.md) for the login flow.
 ```
 
 Esta es la forma **recomendada** porque es estable cuando los documentos se
@@ -306,8 +317,8 @@ entradas agrupadas por fecha, con las más recientes primero:
 # Directory Update Log
 
 ## 2026-05-22
-* **Update**: Added new BigQuery table reference for [Customer Metrics](/tables/customer-metrics.md).
-* **Creation**: Established the [Dataplex Playbook](/playbooks/dataplex.md).
+* **Update**: Added new component reference for [Order Service](/services/orders.md).
+* **Creation**: Established the [Incident Response Playbook](/playbooks/incident-response.md).
 
 ## 2026-05-15
 * **Initialization**: Created foundational directory structure.
@@ -329,8 +340,8 @@ final del documento, numeradas:
 ```markdown
 # Citations
 
-[1] [BigQuery public dataset announcement](https://cloud.google.com/blog/products/data-analytics/...)
-[2] [Internal data quality runbook](https://wiki.acme.internal/data/quality)
+[1] [OAuth 2.0 Security Best Practices](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics)
+[2] [Internal architecture decision log](https://wiki.acme.internal/arch/decisions)
 ```
 
 Los enlaces de citas MAY ser URLs absolutas, rutas relativas al bundle o rutas
@@ -403,50 +414,53 @@ en lugar de rechazar el bundle.
 ```
 my_bundle/
 ├── index.md
-├── datasets/
+├── services/
 │   ├── index.md
-│   └── sales.md
-└── tables/
+│   ├── orders.md
+│   └── auth.md
+├── decisions/
+│   ├── index.md
+│   └── event-driven.md
+└── playbooks/
     ├── index.md
-    ├── orders.md
-    └── customers.md
+    └── incident-response.md
 ```
 
-`datasets/sales.md`:
+`services/orders.md`:
 
 ```markdown
 ---
-type: BigQuery Dataset
-title: Sales
-description: All sales-related tables for the retail business.
-resource: https://console.cloud.google.com/bigquery?p=acme&d=sales
-tags: [sales]
+type: Component
+title: Order Service
+description: Manages order lifecycle from creation to fulfillment.
+resource: https://github.com/acme/orders-service
+tags: [backend, orders]
 timestamp: 2026-05-28T00:00:00Z
 ---
 
-The sales dataset contains transactional tables, including
-[orders](/tables/orders.md) and [customers](/tables/customers.md).
+The order service handles creation, payment, and fulfillment workflows.
+It publishes events consumed by [auth](/services/auth.md) and
+documented in the [event-driven decision](/decisions/event-driven.md).
 ```
 
-`tables/orders.md`:
+`decisions/event-driven.md`:
 
 ```markdown
 ---
-type: BigQuery Table
-title: Orders
-description: One row per completed customer order.
-resource: https://console.cloud.google.com/bigquery?p=acme&d=sales&t=orders
-tags: [sales, orders]
+type: Decision Record
+title: Event-driven architecture
+description: Decision to adopt event-driven communication between services.
+tags: [architecture, events]
 timestamp: 2026-05-28T00:00:00Z
 ---
 
-# Schema
+# Context
 
-| Column        | Type      | Description                  |
-|---------------|-----------|------------------------------|
-| `order_id`    | STRING    | Unique order identifier.     |
-| `customer_id` | STRING    | FK to [customers](/tables/customers.md). |
-| `total_usd`   | NUMERIC   | Order total in USD.          |
+Cascading failures during peak traffic motivated a move away from
+synchronous inter-service calls.
 
-Part of the [sales dataset](/datasets/sales.md).
+# Decision
+
+Adopt event-driven architecture with a message broker. The
+[order service](/services/orders.md) was the first to migrate.
 ```

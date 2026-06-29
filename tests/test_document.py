@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import pytest
 
-from reference_agent.bundle.document import OKFDocument, OKFDocumentError
+from okf.bundle.document import OKFDocument, OKFDocumentError
 
 
 def test_roundtrip_preserves_frontmatter_and_body():
     src = (
         "---\n"
-        "type: BigQuery Table\n"
+        "type: Note\n"
         "title: Sample\n"
-        "description: A sample table.\n"
+        "description: A sample note.\n"
         "tags: [a, b]\n"
         "timestamp: 2026-05-27T00:00:00+00:00\n"
         "---\n"
@@ -20,7 +20,7 @@ def test_roundtrip_preserves_frontmatter_and_body():
         "Body text.\n"
     )
     doc = OKFDocument.parse(src)
-    assert doc.frontmatter["type"] == "BigQuery Table"
+    assert doc.frontmatter["type"] == "Note"
     assert doc.frontmatter["tags"] == ["a", "b"]
     assert doc.body.startswith("# Sample")
 
@@ -43,18 +43,22 @@ def test_unterminated_frontmatter_raises():
         OKFDocument.parse(src)
 
 
-def test_validate_rejects_missing_required_keys():
-    doc = OKFDocument(frontmatter={"type": "X", "title": "Y"})
+def test_validate_rejects_missing_type():
+    doc = OKFDocument(frontmatter={"title": "Y", "description": "Z"})
     with pytest.raises(OKFDocumentError) as exc:
         doc.validate()
-    assert "description" in str(exc.value)
-    assert "timestamp" in str(exc.value)
+    assert "type" in str(exc.value)
+
+
+def test_validate_accepts_minimal_frontmatter():
+    doc = OKFDocument(frontmatter={"type": "Note"})
+    doc.validate()
 
 
 def test_validate_accepts_full_frontmatter():
     doc = OKFDocument(
         frontmatter={
-            "type": "X",
+            "type": "Component",
             "title": "Y",
             "description": "Z",
             "timestamp": "2026-05-27T00:00:00+00:00",

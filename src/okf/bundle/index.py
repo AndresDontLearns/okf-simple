@@ -4,11 +4,10 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Callable
 
-from reference_agent.bundle.document import OKFDocument
-from reference_agent.bundle.synthesizer import synthesize_description
+from okf.bundle.document import OKFDocument
+from okf.bundle.synthesizer import synthesize_description
 
 _INDEX_FILE = "index.md"
-_FALLBACK_MODEL = "gemini-flash-latest"
 
 
 def _load_doc(path: Path) -> OKFDocument | None:
@@ -19,7 +18,6 @@ def _load_doc(path: Path) -> OKFDocument | None:
 
 
 def _build_index_text(entries: list[tuple[str, str, str, str]]) -> str:
-    # entries: (type, title, relative_link, description)
     grouped: dict[str, list[tuple[str, str, str]]] = defaultdict(list)
     for typ, title, link, desc in entries:
         grouped[typ or "Other"].append((title, link, desc))
@@ -49,7 +47,6 @@ def _directories_to_index(bundle_root: Path) -> list[Path]:
 def regenerate_indexes(
     bundle_root: Path,
     *,
-    model: str = _FALLBACK_MODEL,
     synthesize: Callable[..., str] = synthesize_description,
 ) -> list[Path]:
     bundle_root = Path(bundle_root)
@@ -98,6 +95,6 @@ def regenerate_indexes(
             dir_descriptions[directory] = pairs[0][1]
         else:
             rel = str(directory.relative_to(bundle_root))
-            dir_descriptions[directory] = synthesize(rel, pairs, model=model)
+            dir_descriptions[directory] = synthesize(rel, pairs)
 
     return written

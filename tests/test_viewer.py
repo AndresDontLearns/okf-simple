@@ -7,7 +7,7 @@ from textwrap import dedent
 
 import pytest
 
-from reference_agent.viewer.generator import generate_visualization
+from okf.viewer.generator import generate_visualization
 
 
 def _write(path: Path, body: str) -> None:
@@ -17,24 +17,24 @@ def _write(path: Path, body: str) -> None:
 
 def _make_bundle(root: Path) -> None:
     _write(
-        root / "datasets" / "my_dataset.md",
+        root / "categories" / "my_category.md",
         """
         ---
-        type: BigQuery Dataset
-        title: My dataset
-        description: A test dataset.
-        resource: https://example.com/dataset
+        type: Category
+        title: My category
+        description: A test category.
+        resource: https://example.com/category
         tags: [test]
         timestamp: '2026-05-28T00:00:00+00:00'
         ---
-        Parent dataset for [users](../tables/users.md).
+        Parent category for [users](../components/users.md).
         """,
     )
     _write(
-        root / "tables" / "users.md",
+        root / "components" / "users.md",
         """
         ---
-        type: BigQuery Table
+        type: Component
         title: Users
         description: User profiles.
         resource: https://example.com/users
@@ -45,10 +45,10 @@ def _make_bundle(root: Path) -> None:
         """,
     )
     _write(
-        root / "tables" / "events.md",
+        root / "components" / "events.md",
         """
         ---
-        type: BigQuery Table
+        type: Component
         title: Events
         description: User events.
         resource: https://example.com/events
@@ -72,8 +72,7 @@ def _make_bundle(root: Path) -> None:
         COUNT(DISTINCT user_id) per day.
         """,
     )
-    # An auto-generated index that should NOT appear as a concept node.
-    _write(root / "index.md", "# My Bundle\n- tables/users\n- tables/events\n")
+    _write(root / "index.md", "# My Bundle\n- components/users\n- components/events\n")
 
 
 def _extract_bundle_data(html: str) -> dict:
@@ -107,9 +106,9 @@ def test_index_md_is_not_a_concept(tmp_path: Path):
     ids = {n["data"]["id"] for n in data["nodes"]}
     assert "index" not in ids
     assert ids == {
-        "datasets/my_dataset",
-        "tables/users",
-        "tables/events",
+        "categories/my_category",
+        "components/users",
+        "components/events",
         "references/metrics/dau",
     }
 
@@ -121,19 +120,19 @@ def test_cross_links_become_edges(tmp_path: Path):
     generate_visualization(bundle, out)
     data = _extract_bundle_data(out.read_text(encoding="utf-8"))
     pairs = {(e["data"]["source"], e["data"]["target"]) for e in data["edges"]}
-    assert ("datasets/my_dataset", "tables/users") in pairs
-    assert ("tables/users", "tables/events") in pairs
-    assert ("tables/users", "references/metrics/dau") in pairs
-    assert ("tables/events", "tables/users") in pairs
+    assert ("categories/my_category", "components/users") in pairs
+    assert ("components/users", "components/events") in pairs
+    assert ("components/users", "references/metrics/dau") in pairs
+    assert ("components/events", "components/users") in pairs
 
 
 def test_missing_link_targets_are_skipped(tmp_path: Path):
     bundle = tmp_path / "bundle"
     _write(
-        bundle / "tables" / "lonely.md",
+        bundle / "components" / "lonely.md",
         """
         ---
-        type: BigQuery Table
+        type: Component
         title: Lonely
         description: Has a dangling link.
         timestamp: '2026-05-28T00:00:00+00:00'
@@ -148,16 +147,19 @@ def test_missing_link_targets_are_skipped(tmp_path: Path):
     assert len(data["nodes"]) == 1
 
 
-def test_node_colors_match_palette(tmp_path: Path):
+def test_nodes_have_colors_for_all_types(tmp_path: Path):
     bundle = tmp_path / "bundle"
     _make_bundle(bundle)
     out = tmp_path / "viz.html"
     generate_visualization(bundle, out)
     data = _extract_bundle_data(out.read_text(encoding="utf-8"))
-    by_id = {n["data"]["id"]: n["data"] for n in data["nodes"]}
-    assert by_id["datasets/my_dataset"]["color"] == "#8b5cf6"
-    assert by_id["tables/users"]["color"] == "#3b82f6"
-    assert by_id["references/metrics/dau"]["color"] == "#10b981"
+
+    node_types = {n["data"]["type"] for n in data["nodes"]}
+    assert node_types == set(data["palette"].keys())
+
+    for node in data["nodes"]:
+        color = node["data"]["color"]
+        assert re.match(r"^#[0-9a-f]{6}$", color), f"Invalid color: {color}"
 
 
 def test_raises_when_bundle_missing(tmp_path: Path):

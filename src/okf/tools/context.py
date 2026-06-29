@@ -3,12 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from reference_agent.sources.base import Source
-
 
 @dataclass
 class ToolContext:
-    source: Source
     bundle_root: Path
 
 
@@ -28,9 +25,9 @@ _ctx: ToolContext | None = None
 _web: WebState | None = None
 
 
-def set_context(source: Source, bundle_root: Path) -> None:
+def set_context(bundle_root: Path) -> None:
     global _ctx
-    _ctx = ToolContext(source=source, bundle_root=Path(bundle_root))
+    _ctx = ToolContext(bundle_root=Path(bundle_root))
 
 
 def get_context() -> ToolContext:

@@ -4,13 +4,13 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from reference_agent.bundle.document import (
+from okf.bundle.document import (
     REQUIRED_FRONTMATTER_KEYS,
     OKFDocument,
     OKFDocumentError,
 )
-from reference_agent.bundle.paths import concept_id_to_path, parse_concept_id
-from reference_agent.tools.context import get_context, is_web_pass
+from okf.bundle.paths import concept_id_to_path, parse_concept_id
+from okf.tools.context import get_context, is_web_pass
 
 _PREFERRED_KEY_ORDER = ("type", "resource", "title", "description", "tags", "timestamp")
 
@@ -77,12 +77,7 @@ def write_concept_doc(
 ) -> dict[str, Any]:
     """Write (or overwrite) the OKF markdown document for this concept.
 
-    `frontmatter` must include at minimum: type, title, description, timestamp
-    (ISO 8601). `resource` and `tags` are strongly recommended when applicable.
-    The `body` should contain the prose description plus `# Schema`,
-    `# Common query patterns`, and `# Citations` sections per the OKF
-    convention.
-
+    `frontmatter` must include at minimum: type.
     Returns {'path': <relative path written>, 'bytes': <int>}.
     """
     ctx = get_context()
@@ -107,16 +102,12 @@ def write_concept_doc(
             "concept_id": concept_id,
         }
 
-    # Augmentation guard: during the web pass, refuse writes that shrink
-    # an existing BigQuery Table doc's # Schema field set or # Citations
-    # entry count. The BQ pass populates these from real metadata; the
-    # web pass must augment, not replace.
     if is_web_pass() and path.exists():
         try:
             existing = OKFDocument.parse(path.read_text(encoding="utf-8"))
         except Exception:
             existing = None
-        if existing is not None and existing.frontmatter.get("type") == "BigQuery Table":
+        if existing is not None:
             old_fields = _schema_field_names(existing.body)
             new_fields = _schema_field_names(body or "")
             missing = sorted(old_fields - new_fields)
@@ -126,8 +117,8 @@ def write_concept_doc(
                 return {
                     "error": (
                         f"Refusing to write: the existing # Schema section "
-                        f"lists {len(old_fields)} field(s) populated from "
-                        f"BigQuery metadata, but your new # Schema is "
+                        f"lists {len(old_fields)} field(s) from existing "
+                        f"metadata, but your new # Schema is "
                         f"missing {len(missing)} of them: {shown}"
                         f"{truncated}. Augment by adding to the existing "
                         f"schema, not replacing it. Re-call "
@@ -143,12 +134,11 @@ def write_concept_doc(
                 return {
                     "error": (
                         f"Refusing to write: the existing # Citations "
-                        f"section had {old_cites} entries (including the "
-                        f"BigQuery resource URL), but your new # Citations "
-                        f"has only {new_cites}. Append your new citation "
-                        f"rather than replacing the list. Re-call "
-                        f"write_concept_doc with every existing entry "
-                        f"preserved plus the new one."
+                        f"section had {old_cites} entries, but your new "
+                        f"# Citations has only {new_cites}. Append your "
+                        f"new citation rather than replacing the list. "
+                        f"Re-call write_concept_doc with every existing "
+                        f"entry preserved plus the new one."
                     ),
                     "concept_id": concept_id,
                 }

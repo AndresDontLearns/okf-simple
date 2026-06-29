@@ -237,7 +237,7 @@
 
   // Auto-show the first node (a dataset if available, else first concept)
   const initial =
-    bundle.nodes.find((n) => n.data.type === "BigQuery Dataset") ||
+    bundle.nodes[0] ||
     bundle.nodes[0];
   if (initial) showDetail(initial.data.id);
 })();

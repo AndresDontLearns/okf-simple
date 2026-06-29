@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlparse
 
-from reference_agent.tools.context import get_web_state
-from reference_agent.web.fetcher import FetchError, fetch_and_parse
+from okf.tools.context import get_web_state
+from okf.web.fetcher import FetchError, fetch_and_parse
 
 
 def fetch_url(url: str) -> dict[str, Any]:
