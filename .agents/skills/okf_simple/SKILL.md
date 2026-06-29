@@ -1,65 +1,197 @@
 ---
 name: okf_simple
-description: Manage and compile Open Knowledge Format (OKF) metadata catalog directories.
+description: Crear, enriquecer y gestionar bundles de conocimiento en Open Knowledge Format (OKF).
 ---
 
-# Habilidad de Agente OKF Simple
+# OKF Simple — Skill de Agente
 
-Esta habilidad permite a los agentes descubrir, enriquecer, analizar y estructurar conjuntos de datos en **bundles de Open Knowledge Format (OKF)**. Los bundles OKF representan metadatos de catálogo y documentación como un árbol limpio de carpetas con archivos markdown que contienen frontmatter YAML.
-
----
-
-## 1. Herramientas y Funciones Disponibles
-
-Cuando esta habilidad está cargada, tienes acceso a las siguientes herramientas programáticas para manipular el contexto del bundle activo:
-
-* **`list_concepts()`**: Lista todos los conceptos (datasets, tablas o referencias) disponibles en la fuente activa.
-* **`read_concept_raw(concept_id)`**: Obtiene los metadatos estructurados del esquema sin procesar (columnas, tipos de datos, conteos) directamente del sistema subyacente (por ejemplo, BigQuery).
-* **`sample_rows(concept_id, n=5)`**: Extrae algunas filas de datos de muestra para orientar las descripciones.
-* **`read_existing_doc(concept_id)`**: Recupera cualquier documentación markdown OKF previamente escrita desde el disco local.
-* **`write_concept_doc(concept_id, frontmatter, body)`**: Crea o actualiza un documento markdown OKF con frontmatter YAML estándar y secciones en markdown.
-* **`fetch_url(url)`**: Recupera el contenido markdown de la página web y sus enlaces salientes, aplicando automáticamente límites de profundidad, presupuestos y restricciones de dominio.
+OKF es un formato abierto para representar conocimiento como un directorio
+de archivos markdown con frontmatter YAML. Esta skill permite a cualquier
+agente crear, leer, escribir y mantener bundles OKF usando el CLI `okf`.
 
 ---
 
-## 2. Flujo de Trabajo Estándar de Enriquecimiento
+## Comandos CLI disponibles
 
-Para construir un catálogo OKF de alta calidad, ejecuta siempre los pasos en la siguiente secuencia:
+Todos los comandos retornan JSON en stdout.
 
-### Paso 1: Descubrir y Mapear
-Identifica los conceptos presentes en el conjunto de datos llamando a `list_concepts()`. Anota sus IDs, tipos y enlaces a recursos.
+### Crear un bundle
 
-### Paso 2: Leer Metadatos y Datos de Muestra
-Para cada concepto objetivo:
-1. Obtén los parámetros estructurados con `read_concept_raw(concept_id)`.
-2. Extrae datos de muestra con `sample_rows(concept_id)`.
-3. Verifica si existen documentos previos usando `read_existing_doc(concept_id)`.
+```bash
+okf init <path>
+```
 
-### Paso 3: Escribir los Documentos Primarios de Conceptos
-Escribe la documentación principal usando `write_concept_doc(concept_id, frontmatter, body)`.
+Crea el directorio y un `index.md` raíz si no existe.
 
-* **Claves de Frontmatter Requeridas:** `type`, `title`, `description` (exactamente una oración), `timestamp`.
-* **Secciones Markdown Requeridas:**
-  1. Descripción en prosa (granularidad, rango temporal, contexto).
-  2. `# Schema` (listas de columnas, registros anidados).
-  3. `# Common query patterns` (de 1 a 3 bloques SQL realistas).
-  4. `# Citations` (enlaces a especificaciones o endpoints sin procesar).
+### Agregar un concepto vacío
 
-### Paso 4: Rastreo Web y Extracción de Conocimiento
-Si se proporcionan semillas de rastreo, recupéralas usando `fetch_url(url)`. Sigue los enlaces salientes para recopilar detalles de referencia y extrae:
-* **Métricas:** Crea un archivo de referencia de métrica en `references/metrics/<slug>.md` con frontmatter `tags: [metric]` y tipo `Reference`. El cuerpo debe contener la fórmula SQL concreta. Enlaza este archivo desde la sección `# Metrics` de las tablas correspondientes.
-* **Joins:** Crea un archivo de referencia de join en `references/joins/<table_a>__<table_b>.md` (nombres ordenados alfabéticamente) con frontmatter `tags: [join]`. El cuerpo debe contener la cláusula `ON` exacta en SQL. Enlaza esto desde la sección `# Joins` de ambas tablas.
-* **Referencias:** Crea `references/<ref_slug>.md` para enumeraciones generales, entidades de negocio o glosarios.
+```bash
+okf add <bundle> <concept_id> [--type <Type>] [--title <Title>]
+```
+
+- `concept_id` es una ruta separada por `/` (ej: `services/auth`).
+- `--type` define el tipo de concepto (default: `Note`).
+- `--title` es opcional; se deriva del concept_id si se omite.
+
+### Leer un concepto existente
+
+```bash
+okf read <bundle> <concept_id>
+```
+
+Retorna `{"frontmatter": {...}, "body": "..."}` o `null` si no existe.
+Úsalo **siempre** antes de escribir para no sobreescribir contenido previo.
+
+### Escribir / actualizar un concepto
+
+```bash
+okf write <bundle> <concept_id> --frontmatter <json> --body <markdown>
+```
+
+- `--frontmatter`: string JSON o ruta a archivo JSON.
+- `--body`: string markdown o ruta a archivo.
+- Valida que el frontmatter incluya al menos `type`.
+- Retorna `{"path": "...", "bytes": N}` o `{"error": "..."}` si falla.
+
+### Regenerar índices
+
+```bash
+okf index <bundle>
+```
+
+Reconstruye los archivos `index.md` en cada directorio del bundle.
+
+### Generar visualización
+
+```bash
+okf viz <bundle> [--out <path>] [--name <name>]
+```
+
+Genera un archivo HTML autocontenido con un grafo interactivo de los
+conceptos y sus enlaces cruzados.
 
 ---
 
-## 3. Reglas Estrictas de Operación
+## Formato de documentos OKF
 
-Como agente que ejecuta esta habilidad, **debes** cumplir con estas restricciones:
+Cada concepto es un archivo markdown con dos partes: un bloque de
+frontmatter YAML delimitado por `---`, y un body en markdown.
 
-1. **Enlaces Cruzados Relativos:** Siempre enlaza conceptos hermanos o relacionados usando rutas relativas (por ejemplo, `[users](users.md)` o `[parameters](../references/event_parameters.md)`). Nunca uses rutas absolutas con `/`, ya que rompen los visualizadores de markdown sin conexión.
-2. **Integridad de Enriquecimiento:** Al actualizar un documento existente con datos rastreados de la web:
-   * Mantén todas las claves de frontmatter existentes textualmente (`type`, `title`, `resource`).
-   * Preserva todos los encabezados `#` existentes.
-   * No elimines columnas del esquema ni remuevas citas. La herramienta verifica esto y rechazará la escritura si se elimina algo.
-3. **Sin Preámbulos ni Disculpas:** Al escribir archivos markdown, escribe texto limpio y directo. No incluyas razonamientos, disculpas ni comentarios en los archivos `.md`.
+### Frontmatter (claves requeridas)
+
+- `type`: tipo de concepto. Valores típicos: `Component`, `API Endpoint`,
+  `Decision Record`, `Note`, `Playbook`, `Reference`, `Metric`, `Process`.
+  No hay una taxonomía fija — usa el valor que mejor describa el concepto.
+- `title`: nombre corto y legible para humanos.
+- `description`: **una sola oración** que resuma el concepto. Se usa
+  textualmente en los `index.md` generados, así que debe ser concisa e
+  informativa.
+- `timestamp`: omitir — la herramienta completa la hora UTC actual
+  automáticamente. Si necesitas un valor específico, usa ISO 8601.
+
+### Frontmatter (claves recomendadas)
+
+- `resource`: URI del activo subyacente que el concepto describe (un repo,
+  un endpoint, una tabla). Omitir para conceptos abstractos.
+- `tags`: lista YAML de etiquetas de búsqueda inferidas del contenido.
+
+### Secciones del body (en este orden)
+
+1. **Descripción en prosa** (1–3 párrafos) — qué es, qué representa, cómo
+   se usa.
+2. **`# Schema`** — si el concepto tiene campos o estructura, un resumen
+   legible. Omitir si no aplica.
+3. **`# Context`** — motivación, historia y contexto detrás del concepto.
+4. **`# Examples`** — de 1 a 3 ejemplos concretos de uso.
+5. **`# Citations`** — fuentes externas numeradas:
+   ```
+   [1] [Source Title](https://example.com/...)
+   [2] [Another Source](https://example.com/...)
+   ```
+   Incluir el valor de `resource` como primera entrada cuando esté presente.
+   No inventar URLs — citar únicamente fuentes conocidas.
+
+### Ejemplo de documento
+
+```markdown
+---
+type: Component
+title: Order Service
+description: Manages order lifecycle from creation to fulfillment.
+resource: https://github.com/acme/orders-service
+tags: [backend, orders, events]
+---
+
+The order service handles creation, payment, and fulfillment workflows.
+It publishes domain events consumed by downstream services.
+
+# Schema
+
+| Field        | Type     | Description                    |
+|--------------|----------|--------------------------------|
+| `order_id`   | string   | Unique order identifier (UUID) |
+| `status`     | enum     | pending, paid, shipped, closed |
+| `created_at` | datetime | Order creation timestamp       |
+
+# Context
+
+Originally part of the monolith, extracted as a standalone service during
+the migration to event-driven architecture.
+
+# Examples
+
+Create a new order via the API:
+
+    POST /api/v2/orders
+    {"items": [{"sku": "ABC-123", "qty": 2}]}
+
+# Citations
+
+[1] [Order Service repo](https://github.com/acme/orders-service)
+```
+
+---
+
+## Flujo de trabajo de enriquecimiento
+
+Para enriquecer un concepto, sigue esta secuencia:
+
+1. **Leer primero**: `okf read <bundle> <concept_id>`. Si ya existe, úsalo
+   como base — refina en lugar de reescribir.
+2. **Componer el documento** siguiendo las convenciones de frontmatter y
+   secciones del body descritas arriba.
+3. **Escribir**: `okf write <bundle> <concept_id> --frontmatter '...' --body '...'`.
+4. **Regenerar índices**: `okf index <bundle>` al terminar un lote de
+   escrituras.
+
+---
+
+## Reglas de operación
+
+1. **Leer antes de escribir.** Nunca sobreescribas un documento sin leer
+   su contenido actual primero.
+
+2. **Enlaces cruzados relativos.** Enlaza conceptos usando rutas relativas
+   al directorio del documento actual. Nunca uses rutas absolutas con `/`.
+   - Concepto hermano: `[users](users.md)`
+   - Concepto en otro directorio: `[event parameters](../references/event_parameters.md)`
+   - Solo enlaza conceptos que sepas que existen.
+   - Un enlace por mención por sección es suficiente.
+   - No enlaces desde encabezados ni bloques de código.
+
+3. **Integridad de aumentación.** Al actualizar un documento existente:
+   - Preserva todas las claves de frontmatter existentes (`type`, `title`,
+     `resource`) — cópialas textualmente al nuevo diccionario.
+   - Preserva todos los encabezados `#` existentes, en el mismo orden.
+   - No elimines campos del esquema ni citas. La herramienta rechazará
+     la escritura si detecta pérdida de contenido.
+   - Para `tags`, fusiona los existentes con los nuevos.
+   - Puedes extender prosa, agregar viñetas a listas, y agregar nuevas
+     secciones **después** de las existentes.
+
+4. **No inventar.** No cites URLs que no conozcas. No inventes datos que
+   no estén en los metadatos fuente. No inventes destinos de enlaces.
+
+5. **Markdown limpio.** Sin preámbulos, disculpas ni narración de
+   razonamiento en los documentos. El body debe ser consumible directamente
+   por humanos y agentes.
