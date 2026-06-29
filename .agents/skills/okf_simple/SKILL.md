@@ -164,6 +164,13 @@ Para enriquecer un concepto, sigue esta secuencia:
 4. **Regenerar índices**: `okf index <bundle>` al terminar un lote de
    escrituras.
 
+## Ingestión web
+
+Para enriquecer un bundle con contenido de páginas web, usa `WebFetch` para
+obtener las páginas y luego `okf write` para persistir los hallazgos. Las
+instrucciones detalladas de este flujo están en
+`src/okf/prompts/web_ingestion_instruction.md`.
+
 ---
 
 ## Reglas de operación

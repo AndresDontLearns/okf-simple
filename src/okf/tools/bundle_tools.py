@@ -10,7 +10,7 @@ from okf.bundle.document import (
     OKFDocumentError,
 )
 from okf.bundle.paths import concept_id_to_path, parse_concept_id
-from okf.tools.context import get_context, is_web_pass
+from okf.tools.context import get_context
 
 _PREFERRED_KEY_ORDER = ("type", "resource", "title", "description", "tags", "timestamp")
 
@@ -102,7 +102,7 @@ def write_concept_doc(
             "concept_id": concept_id,
         }
 
-    if is_web_pass() and path.exists():
+    if path.exists():
         try:
             existing = OKFDocument.parse(path.read_text(encoding="utf-8"))
         except Exception:

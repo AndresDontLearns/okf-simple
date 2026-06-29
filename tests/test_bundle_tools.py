@@ -5,17 +5,7 @@ from pathlib import Path
 import pytest
 
 from okf.tools.bundle_tools import write_concept_doc
-from okf.tools.context import (
-    clear_web_state,
-    set_context,
-    set_web_state,
-)
-
-
-@pytest.fixture(autouse=True)
-def _cleanup():
-    yield
-    clear_web_state()
+from okf.tools.context import set_context
 
 
 def _set_ctx(tmp_path: Path) -> None:
@@ -41,7 +31,6 @@ def _doc_body(fields: list[str], citations: list[str]) -> str:
 
 def test_write_succeeds_when_no_existing_doc(tmp_path):
     _set_ctx(tmp_path)
-    set_web_state(allowed_hosts=set(), max_pages=1)
     result = write_concept_doc(
         "tables/users",
         _good_frontmatter(),
@@ -51,14 +40,13 @@ def test_write_succeeds_when_no_existing_doc(tmp_path):
     assert (tmp_path / "tables" / "users.md").exists()
 
 
-def test_web_pass_rejects_schema_shrinkage(tmp_path):
+def test_rejects_schema_shrinkage(tmp_path):
     _set_ctx(tmp_path)
     write_concept_doc(
         "tables/users",
         _good_frontmatter(),
         _doc_body(["id", "name", "email", "created_at"], ["[1] [Src](https://src)"]),
     )
-    set_web_state(allowed_hosts=set(), max_pages=1)
     result = write_concept_doc(
         "tables/users",
         _good_frontmatter(),
@@ -70,14 +58,13 @@ def test_web_pass_rejects_schema_shrinkage(tmp_path):
     assert "`created_at`" in result["error"]
 
 
-def test_web_pass_rejects_citation_shrinkage(tmp_path):
+def test_rejects_citation_shrinkage(tmp_path):
     _set_ctx(tmp_path)
     write_concept_doc(
         "tables/users",
         _good_frontmatter(),
         _doc_body(["id"], ["[1] [Src](https://src)", "[2] [Other](https://other)"]),
     )
-    set_web_state(allowed_hosts=set(), max_pages=1)
     result = write_concept_doc(
         "tables/users",
         _good_frontmatter(),
@@ -87,33 +74,17 @@ def test_web_pass_rejects_citation_shrinkage(tmp_path):
     assert "had 2 entries" in result["error"]
 
 
-def test_web_pass_allows_augmentation_with_new_section(tmp_path):
+def test_allows_augmentation_with_new_section(tmp_path):
     _set_ctx(tmp_path)
     write_concept_doc(
         "tables/users",
         _good_frontmatter(),
         _doc_body(["id", "name"], ["[1] [Src](https://src)"]),
     )
-    set_web_state(allowed_hosts=set(), max_pages=1)
     augmented = (
         "Prose.\n\n# Schema\n- `id` STRING: desc\n- `name` STRING: desc\n\n"
         "# Metrics\n- [DAU](/references/metrics/dau.md) — count distinct id\n\n"
         "# Citations\n[1] [Src](https://src)\n[2] [Web](https://web)\n"
     )
     result = write_concept_doc("tables/users", _good_frontmatter(), augmented)
-    assert "error" not in result
-
-
-def test_non_web_pass_can_shrink_schema(tmp_path):
-    _set_ctx(tmp_path)
-    write_concept_doc(
-        "tables/users",
-        _good_frontmatter(),
-        _doc_body(["id", "name", "legacy_col"], ["[1] [Src](https://src)"]),
-    )
-    result = write_concept_doc(
-        "tables/users",
-        _good_frontmatter(),
-        _doc_body(["id", "name"], ["[1] [Src](https://src)"]),
-    )
     assert "error" not in result

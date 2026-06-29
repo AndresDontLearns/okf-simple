@@ -56,12 +56,6 @@ def _parser() -> argparse.ArgumentParser:
     viz_p.add_argument("--out", type=Path, default=None)
     viz_p.add_argument("--name", default=None)
 
-    # fetch-url
-    fetch_p = sub.add_parser("fetch-url", help="Fetch and extract content from a web page.")
-    fetch_p.add_argument("--url", required=True)
-    fetch_p.add_argument("--seeds")
-    fetch_p.add_argument("--max-pages", type=int)
-
     return p
 
 
@@ -138,17 +132,6 @@ def main(argv: list[str] | None = None) -> int:
             stats = generate_visualization(args.bundle, out, bundle_name=args.name)
             print(json.dumps({"status": "success", "path": str(out), "stats": stats}, indent=2))
             return 0
-
-        elif args.command == "fetch-url":
-            from okf import init_web_state, fetch_url
-
-            if args.seeds or args.max_pages is not None:
-                seeds_list = [s.strip() for s in args.seeds.split(",") if s.strip()] if args.seeds else []
-                max_pages = args.max_pages if args.max_pages is not None else 100
-                init_web_state(seeds=seeds_list, max_pages=max_pages)
-            result = fetch_url(args.url)
-            print(json.dumps(result, indent=2, ensure_ascii=False))
-            return 1 if "error" in result else 0
 
     except Exception as e:
         print(json.dumps({"error": str(e)}, indent=2), file=sys.stderr)
